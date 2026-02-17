@@ -1,0 +1,41 @@
+# --- System Files ---
+.DS_Store
+Thumbs.db
+
+# --- Dependencies ---
+node_modules/
+.pnpm-debug.log
+
+# --- Build Outputs ---
+dist/
+build/
+*.tsbuildinfo
+
+# --- Environment & Secrets ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Prisma specific
+.env.backup
+
+# --- Prisma ---
+# Ignore the generated client if you are not using a custom path, 
+# but since you ARE using a custom path (src/generated), 
+# you might want to ignore it to keep your git history clean.
+packages/database/src/generated/
+
+# --- Logs ---
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- IDEs & Tools ---
+.vscode/
+.idea/
+.expo/
+.turbo/
