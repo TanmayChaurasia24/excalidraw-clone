@@ -5,7 +5,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./auth": "./dist/auth.js"
   },
   "scripts": {
     "build": "tsc",
@@ -19,8 +20,10 @@
     "@repo/typescript-config": "workspace:*"
   },
   "dependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.15.3",
     "dotenv": "^17.3.1",
+    "jsonwebtoken": "^9.0.3",
     "zod": "^4.3.6"
   }
 }

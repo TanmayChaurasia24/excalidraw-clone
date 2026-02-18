@@ -23,6 +23,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   chats     Chat[]
+  room      Room?    @relation(fields: [roomId], references: [id])
+  roomId    Int?
 }
 
 model Room {
@@ -32,8 +34,8 @@ model Room {
   admin     User     @relation("Admins", fields: [adminId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  userId    String?
   chats     Chat[]
+  users     User[]
 }
 
 model Chat {

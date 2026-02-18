@@ -1,71 +1,111 @@
+import dotenv from "dotenv";
+dotenv.config();
 import WebSocket, { WebSocketServer } from "ws";
+import { verifyRoomToken } from "@repo/backend-common/auth";
 
-const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ port: 9000 });
+
+interface UserSocket extends WebSocket {
+  userId?: string;
+  roomId?: string;
+}
 
 type Room = {
-  users: Set<WebSocket>;
+  users: Set<UserSocket>;
 };
 
 const rooms: Map<string, Room> = new Map();
 
-wss.on("connection", (socket) => {
+wss.on("connection", (rawSocket: WebSocket) => {
+  const socket = rawSocket as UserSocket;
   console.log("Client connected");
 
   socket.on("message", (data) => {
-    const message = JSON.parse(data.toString());
+    try {
+      const message = JSON.parse(data.toString());
 
-    if (message.type === "join_room") {
-      const { roomId } = message;
+      if (message.type === "join_room") {
+        const { token } = message;
+        const { roomId } = verifyRoomToken(token);
 
-      if (!rooms.has(roomId)) {
-        rooms.set(roomId, { users: new Set() });
-      }
-
-      const room = rooms.get(roomId)!;
-
-      if (room.users.size >= 2) {
-        socket.send(JSON.stringify({ type: "error", message: "Room full" }));
-        return;
-      }
-
-      room.users.add(socket);
-      socket.send(JSON.stringify({ type: "joined", roomId }));
-
-      console.log(`User joined room ${roomId}`);
-    }
-
-    if (message.type === "send_message") {
-      const { roomId, text } = message;
-      const room = rooms.get(roomId);
-
-      if (!room) return;
-
-      room.users.forEach((userSocket) => {
-        if (userSocket !== socket) {
-          userSocket.send(
-            JSON.stringify({
-              type: "receive_message",
-              text,
-            }),
+        if (!roomId) {
+          return socket.send(
+            JSON.stringify({ type: "error", message: "Invalid token" }),
           );
         }
-      });
+
+        const roomIdString = roomId.toString();
+        if (!rooms.has(roomIdString)) {
+          rooms.set(roomIdString, { users: new Set() });
+        }
+
+        const room = rooms.get(roomIdString)!;
+
+        if (room.users.size >= 2) {
+          socket.send(JSON.stringify({ type: "error", message: "Room full" }));
+          return;
+        }
+
+        room.users.add(socket);
+        socket.userId = message.userId;
+        socket.roomId = roomIdString;
+        
+        room.users.forEach((userSocket) => {
+          if (userSocket.readyState === WebSocket.OPEN && userSocket !== socket) {
+            userSocket.send(
+              JSON.stringify({
+                type: "user_joined",
+                userId: message.userId,
+              }),
+            );
+          }
+        });
+
+        socket.send(JSON.stringify({ type: "joined", roomId }));
+        console.log(`User ${message.userId} joined room ${roomId}`);
+      }
+
+      if (message.type === "send_message") {
+        const { text } = message;
+        const roomId = socket.roomId!;
+        if (!roomId) {
+          socket.send(
+            JSON.stringify({ type: "error", message: "Invalid token" }),
+          );
+          return;
+        }
+        const room = rooms.get(roomId);
+
+        if (!room) return;
+
+        room.users.forEach((userSocket) => {
+          if (userSocket !== socket) {
+            userSocket.send(
+              JSON.stringify({
+                type: "receive_message",
+                text,
+                userId: socket.userId,
+              }),
+            );
+          }
+        });
+      }
+    } catch (error) {
+      console.log(error);
     }
   });
 
   socket.on("close", () => {
-    for (const [roomId, room] of rooms.entries()) {
-      if (room.users.has(socket)) {
-        room.users.delete(socket);
+    if (socket.roomId && rooms.has(socket.roomId)) {
+      const room = rooms.get(socket.roomId)!;
+      room.users.delete(socket);
 
-        if (room.users.size === 0) {
-          rooms.delete(roomId);
-        }
+      if (room.users.size === 0) {
+        rooms.delete(socket.roomId);
       }
+      console.log(`User ${socket.userId} left room ${socket.roomId}`);
     }
-
-    console.log("Client disconnected");
   });
 });
 
-console.log("WebSocket server running on ws://localhost:8080");
+console.log("WebSocket server running on ws://localhost:9000");

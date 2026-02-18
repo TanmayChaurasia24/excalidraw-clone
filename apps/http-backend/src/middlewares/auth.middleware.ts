@@ -24,6 +24,7 @@ export const authMiddleware = async(req: Request, res: Response, next: NextFunct
             return errorResponse(res, "user is not there, register first!", 400);
         }
         req.user = user;
+        console.log("done middleware");
         next();
     } catch (error) {
         return errorResponse(res, "Internal server error, auth failed!", 500, error);

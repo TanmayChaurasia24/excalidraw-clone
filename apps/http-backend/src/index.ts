@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import authRoutes from "./modules/auth/routes/auth.route.js";
+import roomRoutes from "./modules/rooms/routes/room.route.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -10,7 +11,8 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/rooms", roomRoutes);
 
 app.listen(8080, () => {
-    console.log("Server running on port 8080");
-})
+  console.log("Server running on port 8080");
+});

@@ -112,18 +112,31 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      dotenv:
+        specifier: ^17.3.1
+        version: 17.3.1
       ws:
         specifier: ^8.19.0
         version: 8.19.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.19.11
 
   packages/backend-common:
     dependencies:
+      '@types/jsonwebtoken':
+        specifier: ^9.0.10
+        version: 9.0.10
       '@types/node':
         specifier: ^22.15.3
         version: 22.19.11
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
+      jsonwebtoken:
+        specifier: ^9.0.3
+        version: 9.0.3
       zod:
         specifier: ^4.3.6
         version: 4.3.6
