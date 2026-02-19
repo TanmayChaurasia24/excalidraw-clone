@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import WebSocket, { WebSocketServer } from "ws";
 import { verifyRoomToken } from "@repo/backend-common/auth";
+import { redis } from "@repo/redis";
 
 const wss = new WebSocketServer({ port: 9000 });
 
@@ -49,9 +50,12 @@ wss.on("connection", (rawSocket: WebSocket) => {
         room.users.add(socket);
         socket.userId = message.userId;
         socket.roomId = roomIdString;
-        
+
         room.users.forEach((userSocket) => {
-          if (userSocket.readyState === WebSocket.OPEN && userSocket !== socket) {
+          if (
+            userSocket.readyState === WebSocket.OPEN &&
+            userSocket !== socket
+          ) {
             userSocket.send(
               JSON.stringify({
                 type: "user_joined",
@@ -89,6 +93,15 @@ wss.on("connection", (rawSocket: WebSocket) => {
             );
           }
         });
+
+        redis.lpush(
+          "chat_messages",
+          JSON.stringify({
+            roomId: parseInt(roomId),
+            userId: socket.userId,
+            message: text,
+          }),
+        );
       }
     } catch (error) {
       console.log(error);

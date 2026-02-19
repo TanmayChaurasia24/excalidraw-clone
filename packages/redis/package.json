@@ -1,0 +1,20 @@
+{
+  "name": "@repo/redis",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "types": "./src/index.ts",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/ioredis": "^5.0.0",
+    "dotenv": "^17.3.1",
+    "ioredis": "^5.9.3",
+    "node": "^25.6.1"
+  }
+}
