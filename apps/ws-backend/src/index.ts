@@ -72,6 +72,14 @@ wss.on("connection", (rawSocket: WebSocket) => {
       if (message.type === "send_message") {
         const { text } = message;
         const roomId = socket.roomId!;
+        if (!text || typeof text !== "string") {
+          return socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "Message text is required",
+            }),
+          );
+        }
         if (!roomId) {
           socket.send(
             JSON.stringify({ type: "error", message: "Invalid token" }),
@@ -93,6 +101,8 @@ wss.on("connection", (rawSocket: WebSocket) => {
             );
           }
         });
+
+        console.log("message is: ", text, roomId, socket.userId);
 
         redis.lpush(
           "chat_messages",

@@ -23,7 +23,6 @@ async function processChatQueue() {
       console.log("Batch inserted successfully.");
     } catch (error) {
       console.log("worker error: ", error);
-      return;
     }
   }
 }
