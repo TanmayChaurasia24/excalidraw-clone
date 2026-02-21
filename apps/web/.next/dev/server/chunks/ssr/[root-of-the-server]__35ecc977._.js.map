@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 18, "column": 0}, "map": {"version":3,"sources":["file:///Users/tanmaykumarchaurasia/Desktop/programming/eraserio_clone/apps/web/app/auth/register/page.tsx"],"sourcesContent":["export default function Register() {\n    return (\n        <div>\n            register\n        </div>\n    )\n}"],"names":[],"mappings":";;;;;;AAAe,SAAS;IACpB,qBACI,mcAAC;kBAAI;;;;;;AAIb"}}]
+}

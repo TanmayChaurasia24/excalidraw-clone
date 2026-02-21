@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 18, "column": 0}, "map": {"version":3,"sources":["file:///Users/tanmaykumarchaurasia/Desktop/programming/eraserio_clone/apps/web/app/page.tsx"],"sourcesContent":["export default function Home() {\n  return (\n    <div className=\"bg-amber-400\">\n      <h1>Home</h1>\n    </div>\n  );\n}\n"],"names":[],"mappings":";;;;;;AAAe,SAAS;IACtB,qBACE,iaAAC;QAAI,WAAU;kBACb,cAAA,iaAAC;sBAAG;;;;;;;;;;;AAGV"}}]
+}
