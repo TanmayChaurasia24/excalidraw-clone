@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { InputField } from "./InputFields";
+
 import { Button } from "./ui/button";
 
 export const LandingPage = () => {
   const [slug, setSlug] = useState("");
   const [roomID, setRoomId] = useState("");
   const [loggedin, setLoggedin] = useState(false);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -18,7 +20,37 @@ export const LandingPage = () => {
     }
   }, []);
 
-  const handleCreateRoom = () => {};
+  const handleCreateRoom = async (e: any) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { roomService } = await import("@/lib/api");
+
+      const response = await roomService.createroom({ slug });
+      console.log("room created successfully, client!", response);
+
+      const roomid = response.data.id;
+      localStorage.setItem("roomid", String(roomid));
+
+      const roomToken = await roomService.createRoomToken({
+        roomId: roomid,
+        userId: JSON.parse(localStorage.getItem("user")!).id,
+      });
+      if (roomToken.data.RoomToken) {
+        localStorage.setItem("roomToken", roomToken.data.RoomToken);
+      } else {
+        console.log("room token not generated, client!", roomToken);
+        return;
+      }
+
+      router.push(`/room/${slug}`);
+    } catch (error) {
+      console.log("error while creating room, client!", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -56,7 +88,7 @@ export const LandingPage = () => {
         </div>
       </nav>
       <div className="flex flex-col gap-24 justify-center items-center h-screen">
-        <div className="flex flex-col gap-4">
+        <form onSubmit={handleCreateRoom} className="flex flex-col gap-4">
           <h1 className="font-bold text-3xl">Create Room</h1>
           <InputField
             label="Slug"
@@ -65,12 +97,13 @@ export const LandingPage = () => {
             onChange={(e: any) => setSlug(e.target.value)}
           />
           <button
-            onClick={handleCreateRoom}
+            type="submit"
+            disabled={loading}
             className="bg-blue-500 text-white px-4 py-2 rounded"
           >
-            Create Room
+            {loading ? "Creating Room..." : "Create Room"}
           </button>
-        </div>
+        </form>
         <div className="flex flex-col gap-4">
           <h1 className="font-bold text-3xl">Join Room</h1>
           <InputField

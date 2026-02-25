@@ -49,3 +49,27 @@ export const authService = {
     });
   },
 };
+
+export const roomService = {
+  createroom: async (data: any) => {
+    return fetcher("/api/rooms/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+      body: JSON.stringify(data),
+    });
+  },
+
+  createRoomToken: async (data: any) => {
+    return fetcher(`/api/rooms/${data.roomId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+      body: JSON.stringify({ userId: data.userId }),
+    });
+  },
+};

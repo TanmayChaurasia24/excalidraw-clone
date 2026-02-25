@@ -7,11 +7,14 @@ import jwt from "jsonwebtoken";
 
 export const authMiddleware = async(req: Request, res: Response, next: NextFunction) => {
     try {
-        const token = req.headers.authorization;
+        let token = req.headers.authorization;
         if(!token) {
             return errorResponse(res, "token is required", 400);
         }
-        const decodedToken = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
+        if (token.startsWith("Bearer ")) {
+            token = token.split(" ")[1];
+        }
+        const decodedToken = jwt.verify(token as string, JWT_SECRET!) as jwt.JwtPayload;
         if(!decodedToken || !decodedToken.id) {
             return errorResponse(res, "token is invalid", 400);
         }
