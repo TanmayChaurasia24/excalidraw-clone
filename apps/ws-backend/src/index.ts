@@ -9,6 +9,8 @@ const wss = new WebSocketServer({ port: 9000 });
 interface UserSocket extends WebSocket {
   userId?: string;
   roomId?: string;
+  name?: string;
+  email?: string;
 }
 
 type Room = {
@@ -50,7 +52,10 @@ wss.on("connection", (rawSocket: WebSocket) => {
         room.users.add(socket);
         socket.userId = message.userId;
         socket.roomId = roomIdString;
+        socket.name = message.name;
+        socket.email = message.email;
 
+        // Tell existing users about the new user
         room.users.forEach((userSocket) => {
           if (
             userSocket.readyState === WebSocket.OPEN &&
@@ -59,13 +64,26 @@ wss.on("connection", (rawSocket: WebSocket) => {
             userSocket.send(
               JSON.stringify({
                 type: "user_joined",
-                userId: message.userId,
+                user: {
+                  userId: message.userId,
+                  name: message.name,
+                  email: message.email,
+                },
               }),
             );
           }
         });
 
-        socket.send(JSON.stringify({ type: "joined", roomId }));
+        // Tell the new user about the room and all its current occupants
+        const occupants = Array.from(room.users).map((u) => ({
+          userId: u.userId,
+          name: u.name,
+          email: u.email,
+        }));
+
+        socket.send(
+          JSON.stringify({ type: "joined", roomId, users: occupants }),
+        );
         console.log(`User ${message.userId} joined room ${roomId}`);
       }
 
@@ -122,6 +140,18 @@ wss.on("connection", (rawSocket: WebSocket) => {
     if (socket.roomId && rooms.has(socket.roomId)) {
       const room = rooms.get(socket.roomId)!;
       room.users.delete(socket);
+
+      // Notify remaining users that this user left
+      room.users.forEach((userSocket) => {
+        if (userSocket.readyState === WebSocket.OPEN) {
+          userSocket.send(
+            JSON.stringify({
+              type: "user_left",
+              userId: socket.userId,
+            }),
+          );
+        }
+      });
 
       if (room.users.size === 0) {
         rooms.delete(socket.roomId);

@@ -30,6 +30,7 @@ export const joinController = async (req: Request, res: Response) => {
 
     return successResponse(res, "room token generated successfully", 200, {
       RoomToken,
+      slug: isRoomThere.slug,
     });
   } catch (error) {
     return errorResponse(res, "internal server error", 500);

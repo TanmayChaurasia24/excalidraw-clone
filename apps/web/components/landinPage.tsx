@@ -52,6 +52,35 @@ export const LandingPage = () => {
     }
   };
 
+  const handleJoinRoom = async (e: any) => {
+    e.preventDefault();
+    if (!roomID) return;
+    setLoading(true);
+
+    try {
+      const { roomService } = await import("@/lib/api");
+
+      const roomToken = await roomService.createRoomToken({
+        roomId: roomID,
+        userId: JSON.parse(localStorage.getItem("user")!).id,
+      });
+
+      if (roomToken.data.RoomToken) {
+        localStorage.setItem("roomToken", roomToken.data.RoomToken);
+        localStorage.setItem("roomid", String(roomID));
+        router.push(`/room/${roomToken.data.slug}`);
+      } else {
+        console.log("room token not generated, client!", roomToken);
+        alert(roomToken.message || "Failed to join room");
+      }
+    } catch (error) {
+      console.log("error while joining room, client!", error);
+      alert("Error joining room. Please check the Room ID.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div>
       <nav className="w-full flex justify-between p-2">
@@ -104,7 +133,7 @@ export const LandingPage = () => {
             {loading ? "Creating Room..." : "Create Room"}
           </button>
         </form>
-        <div className="flex flex-col gap-4">
+        <form onSubmit={handleJoinRoom} className="flex flex-col gap-4">
           <h1 className="font-bold text-3xl">Join Room</h1>
           <InputField
             label="Room ID"
@@ -112,10 +141,14 @@ export const LandingPage = () => {
             description="Enter the room ID to join"
             onChange={(e: any) => setRoomId(e.target.value)}
           />
-          <button className="bg-blue-500 text-white px-4 py-2 rounded">
-            Join Room
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            {loading ? "Joining..." : "Join Room"}
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

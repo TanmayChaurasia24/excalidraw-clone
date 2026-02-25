@@ -35,6 +35,7 @@ async function fetcher(endpoint: string, options: RequestInit = {}) {
   return data;
 }
 
+
 export const authService = {
   signup: async (data: Record<string, any>) => {
     return fetcher("/api/auth/signup", {
@@ -72,4 +73,5 @@ export const roomService = {
       body: JSON.stringify({ userId: data.userId }),
     });
   },
+
 };
