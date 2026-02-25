@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { InputField } from "./InputFields";
 import { Button } from "./ui/button";
@@ -8,17 +8,51 @@ import { Button } from "./ui/button";
 export const LandingPage = () => {
   const [slug, setSlug] = useState("");
   const [roomID, setRoomId] = useState("");
+  const [loggedin, setLoggedin] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      setLoggedin(true);
+    }
+  }, []);
 
   const handleCreateRoom = () => {};
 
   return (
     <div>
-      <nav className="bg-yellow-200 w-full flex justify-between p-2">
+      <nav className="w-full flex justify-between p-2">
         <h1 className="text-2xl font-bold">Eraserio</h1>
         <div className="flex gap-2">
-            <Button className="bg-blue-500 hover:bg-blue-600" onClick={() => router.push("/auth/login")}>Sign In</Button>
-            <Button className="bg-blue-500 hover:bg-blue-600" onClick={() => router.push("/auth/register")}>Sign Up</Button>
+          {!loggedin ? (
+            <div>
+              <Button
+                className="bg-blue-500 hover:bg-blue-600"
+                onClick={() => router.push("/auth/login")}
+              >
+                Sign In
+              </Button>
+              <Button
+                className="bg-blue-500 hover:bg-blue-600"
+                onClick={() => router.push("/auth/register")}
+              >
+                Sign Up
+              </Button>
+            </div>
+          ) : (
+            <Button
+              className="bg-blue-500 hover:bg-blue-600"
+              onClick={() => {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+                setLoggedin(false);
+                router.push("/");
+              }}
+            >
+              Logout
+            </Button>
+          )}
         </div>
       </nav>
       <div className="flex flex-col gap-24 justify-center items-center h-screen">
