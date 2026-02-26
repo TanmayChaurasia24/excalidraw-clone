@@ -16,6 +16,9 @@ export default function RoomPage({
   const [users, setUsers] = useState<
     { userId: string; name: string; email: string }[]
   >([]);
+  const [chatMessages, setChatMessages] = useState<string>("");
+  const [messages, setMessages] = useState<any[]>([]);
+
   const { slug } = use(params);
 
   useEffect(() => {
@@ -61,6 +64,11 @@ export default function RoomPage({
         setUsers((prev) => [...prev, data.user]);
       } else if (data.type === "user_left") {
         setUsers((prev) => prev.filter((u) => u.userId !== data.userId));
+      } else if (data.type === "receive_message") {
+        setMessages((prev) => [
+          ...prev,
+          { text: data.text, userId: data.userId, name: data.name },
+        ]);
       }
     };
 
@@ -84,9 +92,37 @@ export default function RoomPage({
     };
   }, [router]);
 
+  useEffect(() => {
+    if (!roomId) return;
+
+    const fetchChatRoom = async () => {
+      try {
+        const { chatService } = await import("@/lib/api");
+        const { data } = await chatService.getChat(roomId.toString());
+        if (!data) {
+          setError("Failed to fetch chat room");
+          return;
+        }
+        console.log(data);
+        const msg = data.map((m: any) => {
+          return {
+            text: m.message,
+            userId: m.userId,
+            name: m.user?.name,
+          };
+        });
+        setMessages(msg);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    fetchChatRoom();
+  }, [roomId]);
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center h-screen bg-gray-900 text-white">
         <p className="text-xl font-semibold">Joining Room {slug}...</p>
       </div>
     );
@@ -94,11 +130,11 @@ export default function RoomPage({
 
   if (error) {
     return (
-      <div className="flex flex-col gap-4 justify-center items-center h-screen">
+      <div className="flex flex-col gap-4 justify-center items-center h-screen bg-gray-900 text-white">
         <p className="text-xl font-semibold text-red-500">Error: {error}</p>
         <button
           onClick={() => router.push("/")}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
         >
           Go Back
         </button>
@@ -106,59 +142,175 @@ export default function RoomPage({
     );
   }
 
+  const handleChatMessageSubmit = (e: any) => {
+    e.preventDefault();
+    try {
+      if (!socket || !roomId || !chatMessages) {
+        console.log("Missing required fields");
+        return;
+      }
+
+      console.log("Sending message", chatMessages);
+      socket.send(
+        JSON.stringify({
+          type: "send_message",
+          text: chatMessages,
+        }),
+      );
+
+      const localUserStr = localStorage.getItem("user");
+      const localUser = localUserStr ? JSON.parse(localUserStr) : null;
+      if (localUser) {
+        setMessages((prev) => [
+          ...prev,
+          { text: chatMessages, userId: localUser.id, name: localUser.name },
+        ]);
+      }
+
+      setChatMessages("");
+    } catch (error) {
+      console.log("Error sending message, client!", error);
+      setError("Failed to send message");
+    }
+  };
+
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold mb-4">Room: {slug}</h1>
+    <div className="flex h-screen overflow-hidden bg-gray-900 text-white">
+      {/* Main Content Area */}
+      <div className="flex-1 p-8 overflow-y-auto">
+        <h1 className="text-3xl font-bold mb-4">Room: {slug}</h1>
 
-      {roomId && (
-        <div className="mb-6 p-4 bg-gray-100 rounded-lg inline-block border">
-          <p className="text-sm text-gray-600 mb-2 font-semibold">
-            Share this Room ID with others to join:
-          </p>
-          <div className="flex items-center gap-3">
-            <code className="text-xl font-mono bg-white px-3 py-1 rounded border shadow-inner text-blue-600">
-              {roomId}
-            </code>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(String(roomId));
-                alert("Room ID copied to clipboard!");
-              }}
-              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm font-medium"
-            >
-              Copy ID
-            </button>
+        {roomId && (
+          <div className="mb-6 p-4 bg-gray-800 rounded-lg inline-block border border-gray-700">
+            <p className="text-sm text-gray-400 mb-2 font-semibold">
+              Share this Room ID with others to join:
+            </p>
+            <div className="flex items-center gap-3">
+              <code className="text-xl font-mono bg-gray-900 px-3 py-1 rounded border border-gray-700 shadow-inner text-blue-400">
+                {roomId}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(String(roomId));
+                  alert("Room ID copied to clipboard!");
+                }}
+                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                Copy ID
+              </button>
+            </div>
           </div>
+        )}
+
+        <br />
+        <p className="text-green-400 font-medium bg-green-900/40 p-3 rounded-md border border-green-800 inline-block">
+          🟢 Successfully connected to WebSocket server!
+        </p>
+
+        <div className="mt-8">
+          <h2 className="text-xl font-bold mb-4 text-gray-100">
+            Users in the room: ({users.length})
+          </h2>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {users.map((u, i) => (
+              <li
+                key={i}
+                className="flex flex-col bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700"
+              >
+                <span className="font-semibold text-gray-100">
+                  {u.name || "Unknown"}{" "}
+                  {u.userId ===
+                  JSON.parse(localStorage.getItem("user") || "{}").id
+                    ? "(You)"
+                    : ""}
+                </span>
+                <span className="text-sm text-gray-400">
+                  {u.email || "No email"}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
-      )}
+      </div>
 
-      <p className="text-green-600 font-medium bg-green-50 p-3 rounded-md inline-block">
-        🟢 Successfully connected to WebSocket server!
-      </p>
+      {/* Chat Sidebar UI - Right side */}
+      <div className="w-80 sm:w-96 border-l border-gray-700 bg-gray-800 flex flex-col h-full shadow-lg z-10">
+        <div className="p-4 border-b border-gray-700 bg-gray-800 flex flex-col items-start justify-center">
+          <h2 className="text-lg font-bold text-gray-100">Room Chat</h2>
+          <span className="text-xs text-green-400 font-medium tracking-wide uppercase">
+            Online • Everyone can chat
+          </span>
+        </div>
 
-      <div className="mt-8">
-        <h2 className="text-xl font-bold mb-4 text-gray-800">
-          Users in the room: ({users.length})
-        </h2>
-        <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {users.map((u, i) => (
-            <li
-              key={i}
-              className="flex flex-col bg-white p-4 rounded-lg shadow-sm border border-gray-200"
+        {/* Messages Area */}
+        <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4">
+          {messages.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center mt-4">
+              No messages yet. Be the first to start the conversation!
+            </p>
+          ) : (
+            messages.map((m, i) => {
+              const isMe =
+                m.userId ===
+                JSON.parse(localStorage.getItem("user") || "{}").id;
+
+              const u = users.find((user) => user.userId === m.userId);
+              const userName = isMe ? "You" : m.name || u?.name || "User";
+
+              if (isMe) {
+                return (
+                  <div
+                    key={i}
+                    className="self-end relative bg-blue-600 text-white rounded-2xl rounded-tr-sm p-3 max-w-[85%] shadow-sm"
+                  >
+                    <span className="text-xs font-bold text-blue-200 mb-1 block">
+                      {userName}
+                    </span>
+                    <p className="text-sm text-white pb-3">{m.text}</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={i}
+                  className="self-start relative bg-gray-700 border border-gray-600 rounded-2xl rounded-tl-sm p-3 max-w-[85%] shadow-sm"
+                >
+                  <span className="text-xs font-bold text-blue-400 mb-1 block">
+                    {userName}
+                  </span>
+                  <p className="text-sm text-gray-100 pb-3">{m.text}</p>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 bg-gray-800 border-t border-gray-700">
+          <form className="flex gap-2" onSubmit={handleChatMessageSubmit}>
+            <input
+              type="text"
+              placeholder="Type your message..."
+              onChange={(e) => setChatMessages(e.target.value)}
+              value={chatMessages}
+              className="flex-1 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
+            <button
+              type="submit"
+              className="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-blue-700 transition-colors shadow-sm cursor-pointer shrink-0"
             >
-              <span className="font-semibold text-gray-800">
-                {u.name || "Unknown"}{" "}
-                {u.userId ===
-                JSON.parse(localStorage.getItem("user") || "{}").id
-                  ? "(You)"
-                  : ""}
-              </span>
-              <span className="text-sm text-gray-500">
-                {u.email || "No email"}
-              </span>
-            </li>
-          ))}
-        </ul>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="w-5 h-5 ml-0.5"
+              >
+                <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
+              </svg>
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

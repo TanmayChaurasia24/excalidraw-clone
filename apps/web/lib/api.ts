@@ -75,3 +75,11 @@ export const roomService = {
   },
 
 };
+
+export const chatService = {
+  getChat: async (roomId: string) => {
+    return fetcher(`/api/chats/${roomId}`, {
+      method: "GET",
+    });
+  },
+};

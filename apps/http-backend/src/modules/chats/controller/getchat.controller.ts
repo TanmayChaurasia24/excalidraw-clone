@@ -14,7 +14,6 @@ export const getChatController = async (req: Request, res: Response) => {
       orderBy: {
         createdAt: "desc",
       },
-      take: 50,
       include: {
         user: {
           select: {

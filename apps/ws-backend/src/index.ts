@@ -115,6 +115,7 @@ wss.on("connection", (rawSocket: WebSocket) => {
                 type: "receive_message",
                 text,
                 userId: socket.userId,
+                name: socket.name,
               }),
             );
           }
