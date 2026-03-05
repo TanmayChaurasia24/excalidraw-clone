@@ -132,6 +132,54 @@ wss.on("connection", (rawSocket: WebSocket) => {
           }),
         );
       }
+
+      if (message.type === "canvas_update") {
+        if (!socket.roomId) return;
+        const room = rooms.get(socket.roomId);
+        if (!room) return;
+        room.users.forEach((userSocket) => {
+          if (
+            userSocket !== socket &&
+            userSocket.readyState === WebSocket.OPEN
+          ) {
+            userSocket.send(
+              JSON.stringify({
+                type: "receive_canvas_update",
+                element: message.element, // shape is been drawn
+              }),
+            );
+          }
+        });
+      }
+
+      if (message.type === "canvas_commit") {
+        if (!socket.roomId) return;
+        const room = rooms.get(socket.roomId);
+        if (!room) return;
+        room.users.forEach((userSocket) => {
+          if (
+            userSocket !== socket &&
+            userSocket.readyState === WebSocket.OPEN
+          ) {
+            userSocket.send(
+              JSON.stringify({
+                type: "receive_canvas_commit",
+                element: message.element,
+              }),
+            );
+          }
+        });
+
+        redis.lpush(
+          "canvas_elements",
+          JSON.stringify({
+            action: "UPSERT",
+            roomId: parseInt(socket.roomId),
+            userId: socket.userId,
+            element: message.element,
+          }),
+        );
+      }
     } catch (error) {
       console.log(error);
     }

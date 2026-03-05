@@ -1,6 +1,8 @@
 import { redis } from "@repo/redis";
 import { prisma } from "@repo/database";
 
+const SLEEP_MS = 1000;
+
 async function processChatQueue() {
   console.log("processing chat queue...");
 
@@ -9,7 +11,7 @@ async function processChatQueue() {
       const messages = await redis.rpop("chat_messages", 50);
 
       if (!messages || messages.length === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 10000));
+        await new Promise((resolve) => setTimeout(resolve, SLEEP_MS));
         continue;
       }
 
@@ -27,4 +29,66 @@ async function processChatQueue() {
   }
 }
 
-processChatQueue();
+async function processCanvasQueue() {
+  console.log("started canvas worker...");
+
+  while (true) {
+    try {
+      const messages = await redis.rpop("canvas_elements", 50);
+
+      if (!messages || messages.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, SLEEP_MS));
+        continue;
+      }
+      console.log(`Pulled ${messages.length} canvas events from queue...`);
+      const parsedMessages = messages.map((msg: string) => JSON.parse(msg));
+
+      // if users moves one circle 10 times then we only want the 10th updated location of the circle
+      const uniqueUpdates = new Map();
+      for (const msg of parsedMessages) {
+        uniqueUpdates.set(msg.element.id, msg);
+      }
+
+      const operations = Array.from(uniqueUpdates.values()).map((msg) => {
+        const { roomId, userId, element } = msg;
+
+        return prisma.element.upsert({
+          where: { id: element.id },
+          update: {
+            x: element.x,
+            y: element.y,
+            width: element.width,
+            height: element.height,
+            properties: element.properties,
+            zindex: element.zindex,
+          },
+          create: {
+            id: element.id,
+            type: element.type,
+            x: element.x,
+            y: element.y,
+            width: element.width,
+            height: element.height,
+            properties: element.properties,
+            zindex: element.zindex,
+            roomId,
+            creatorId: userId,
+          },
+        });
+      });
+
+      await prisma.$transaction(operations);
+      console.log(
+        `Canvas batch upserted (${operations.length} unique writes).`,
+      );
+    } catch (error) {}
+  }
+}
+
+const startWorkers = () => {
+  console.log("Initializing background workers...");
+  processChatQueue();
+  processCanvasQueue();
+};
+
+startWorkers();

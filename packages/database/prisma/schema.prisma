@@ -13,29 +13,42 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ElementType {
+  RECTANGLE
+  CIRCLE
+  SQUARE
+  PEN
+  PENCIL
+  TEXT
+  ARROW
+  IMAGE
+}
+
 model User {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  email     String   @unique
+  email     String    @unique
   password  String
-  photo     String?  @default("")
-  rooms     Room[]   @relation("Admins")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  photo     String?   @default("")
+  rooms     Room[]    @relation("Admins")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   chats     Chat[]
-  room      Room?    @relation(fields: [roomId], references: [id])
+  room      Room?     @relation(fields: [roomId], references: [id])
   roomId    Int?
+  elements  Element[]
 }
 
 model Room {
-  id        Int      @id @default(autoincrement())
-  slug      String   @unique
+  id        Int       @id @default(autoincrement())
+  slug      String    @unique
   adminId   String
-  admin     User     @relation("Admins", fields: [adminId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  admin     User      @relation("Admins", fields: [adminId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   chats     Chat[]
   users     User[]
+  elements  Element[]
 }
 
 model Chat {
@@ -47,4 +60,23 @@ model Chat {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Element {
+  id         String      @id @default(cuid())
+  type       ElementType
+  x          Float
+  y          Float
+  width      Float?
+  height     Float?
+  properties Json        @default("{}")
+  zindex     Int
+  roomId     Int
+  room       Room        @relation(fields: [roomId], references: [id])
+  creatorId  String
+  creator    User        @relation(fields: [creatorId], references: [id])
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([roomId])
 }
