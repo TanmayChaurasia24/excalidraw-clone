@@ -35,7 +35,6 @@ async function fetcher(endpoint: string, options: RequestInit = {}) {
   return data;
 }
 
-
 export const authService = {
   signup: async (data: Record<string, any>) => {
     return fetcher("/api/auth/signup", {
@@ -74,6 +73,15 @@ export const roomService = {
     });
   },
 
+  fetchInitialCanvas: async (roomId: string) => {
+    return fetcher(`/api/rooms/elements/${roomId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+  },
 };
 
 export const chatService = {

@@ -1,8 +1,8 @@
-export type ELEMENT_TYPE = 'RECTANGLE' | 'CIRCLE' | 'ARROW' | 'PENCIL' | 'SQUARE' | 'PEN' | 'TEXT' | 'ARROW' | 'IMAGE';
+export type element_type = 'RECTANGLE' | 'CIRCLE' | 'ARROW' | 'PENCIL' | 'SQUARE' | 'PEN' | 'TEXT' | 'ARROW' | 'IMAGE';
 
 export interface CanvasElement {
     id: String;
-    type: ELEMENT_TYPE;
+    type: element_type;
     x: number;
     y: number;
     width: number;

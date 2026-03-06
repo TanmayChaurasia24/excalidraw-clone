@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
+import Canvas from "@/components/canvas";
 
 export default function RoomPage({
   params,
@@ -175,66 +176,43 @@ export default function RoomPage({
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-900 text-white">
-      {/* Main Content Area */}
-      <div className="flex-1 p-8 overflow-y-auto">
-        <h1 className="text-3xl font-bold mb-4">Room: {slug}</h1>
-
-        {roomId && (
-          <div className="mb-6 p-4 bg-gray-800 rounded-lg inline-block border border-gray-700">
-            <p className="text-sm text-gray-400 mb-2 font-semibold">
-              Share this Room ID with others to join:
-            </p>
-            <div className="flex items-center gap-3">
-              <code className="text-xl font-mono bg-gray-900 px-3 py-1 rounded border border-gray-700 shadow-inner text-blue-400">
-                {roomId}
-              </code>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(String(roomId));
-                  alert("Room ID copied to clipboard!");
-                }}
-                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
-              >
-                Copy ID
-              </button>
+    <div className="flex h-screen overflow-hidden bg-gray-900 text-white flex-row">
+      {/* Canvas Area - Left side */}
+      <div className="w-[70vw] relative h-full">
+        <Canvas roomId={roomId?.toString() ?? ""} />
+        
+        {/* Room Info Overlay */}
+        <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+          {roomId && (
+            <div className="p-3 bg-gray-800/80 backdrop-blur rounded-lg border border-gray-700 shadow-md inline-block">
+              <p className="text-xs text-gray-400 mb-1 font-semibold">
+                Room ID:
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="text-sm font-mono bg-gray-900 px-2 py-1 rounded border border-gray-700 text-blue-400">
+                  {roomId}
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(String(roomId));
+                    alert("Room ID copied to clipboard!");
+                  }}
+                  className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs font-medium"
+                >
+                  Copy
+                </button>
+              </div>
             </div>
+          )}
+          <div className="p-3 bg-gray-800/80 backdrop-blur rounded-lg border border-gray-700 shadow-md inline-block">
+             <p className="text-xs text-gray-400 font-semibold mb-1">Users in room: {users.length}</p>
+             <p className="text-xs text-green-400 font-medium">🟢 Connected</p>
           </div>
-        )}
-
-        <br />
-        <p className="text-green-400 font-medium bg-green-900/40 p-3 rounded-md border border-green-800 inline-block">
-          🟢 Successfully connected to WebSocket server!
-        </p>
-
-        <div className="mt-8">
-          <h2 className="text-xl font-bold mb-4 text-gray-100">
-            Users in the room: ({users.length})
-          </h2>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {users.map((u, i) => (
-              <li
-                key={i}
-                className="flex flex-col bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700"
-              >
-                <span className="font-semibold text-gray-100">
-                  {u.name || "Unknown"}{" "}
-                  {u.userId ===
-                  JSON.parse(localStorage.getItem("user") || "{}").id
-                    ? "(You)"
-                    : ""}
-                </span>
-                <span className="text-sm text-gray-400">
-                  {u.email || "No email"}
-                </span>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
 
       {/* Chat Sidebar UI - Right side */}
-      <div className="w-80 sm:w-96 border-l border-gray-700 bg-gray-800 flex flex-col h-full shadow-lg z-10">
+      <div className="w-[30vw] border-l border-gray-700 bg-gray-800 flex flex-col h-full shadow-lg z-10">
         <div className="p-4 border-b border-gray-700 bg-gray-800 flex flex-col items-start justify-center">
           <h2 className="text-lg font-bold text-gray-100">Room Chat</h2>
           <span className="text-xs text-green-400 font-medium tracking-wide uppercase">
