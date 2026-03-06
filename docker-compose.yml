@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  http-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      - PORT=8080
+    ports:
+      - "8080:8080"
+    command: pnpm --filter http-backend start
+
+  ws-backend-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      - PORT=9000
+    ports:
+      - "9000:9000"
+    command: pnpm --filter ws-backend run start
+
+  ws-backend-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      - PORT=9001
+    ports:
+      - "9001:9001"
+    command: pnpm --filter ws-backend run start
+
+  ws-backend-3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      - PORT=9002
+    ports:
+      - "9002:9002"
+    command: pnpm --filter ws-backend run start
+
+  ws-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    command: pnpm --filter ws-backend run start:worker
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./apps/nginx/nginx.docker.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ws-backend-1
+      - ws-backend-2
+      - ws-backend-3

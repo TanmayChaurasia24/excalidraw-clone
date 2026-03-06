@@ -34,7 +34,7 @@ export default function RoomPage({
 
     const user = JSON.parse(userStr);
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:9000";
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8081";
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

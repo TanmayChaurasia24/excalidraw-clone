@@ -1,135 +1,63 @@
-# Turborepo starter
+# Eraser.io Clone
 
-This Turborepo starter is maintained by the Turborepo core team.
+A full-stack, enterprise-grade, real-time collaborative whiteboarding application. Built with Next.js, WebSockets, Redis, and PostgreSQL, orchestrated via Docker & Nginx.
 
-## Using this example
+## Architecture
 
-Run the following command:
+![Architecture](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Nginx_logo.svg/1024px-Nginx_logo.svg.png)
 
-```sh
-npx create-turbo@latest
+This application employs a high-performance, horizontally scaled backend to ensure low-latency real-time collaboration.
+
+### Core Technologies
+
+- **Frontend**: Next.js (React), Rough.js (Stylized Canvas drawing), TailwindCSS.
+- **REST API**: Node.js/Express (`http-backend` for static data and authentication).
+- **WebSockets Engine**: Node.js/ws (`ws-backend` for handling live canvas element pushes).
+- **Message Broker & Pub/Sub**: Redis Cloud (Used for Global Event Broadcasting and Queueing).
+- **Load Balancer**: NGINX Reverse Proxy (Layer 7 routing with sticky sessions).
+- **Database**: PostgreSQL (NeonDB), managed with Prima ORM.
+- **Background Worker**: Node.js Worker process consuming Redis Queues to decouple high-frequency writes.
+- **Containerization**: Docker & Docker Compose (`node:20-alpine` based).
+
+## Distributed System Design
+
+1. **Load Balancing**: The Next.js client connects via secure WebSocket (`wss://`) to an **NGINX Reverse Proxy** router. Using `ip_hash` sticky sessions, clients are partitioned evenly across 3 independently running WebSocket servers.
+2. **Real-time Sync**: When "User A" drawing on `Node 1` draws a circle, `Node 1` pushes a `global_canvas_updates` payload to a **Redis Pub/Sub** bus. `Node 2` and `Node 3` instantly receive this internal pub/sub event and broadcast the canvas coordinates downstream to any connected peers.
+3. **Queue Processing**: To prevent heavy SQL transactions from blocking the event loop on every mouse stroke, WebSocket servers push completed drawings into a `canvas_elements` Redis List. A secure **Background Worker Process** `blpop`s the events from the queue asynchronously and executes batch upset/delete transactions on the PostgreSQL database via Prisma ORM.
+
+## How to Run locally
+
+### 1. Configure Envs
+
+Create a `.env` file at the root of the project with the following secrets:
+
+```bash
+DATABASE_URL='postgresql://<user>:<password>@<domain>.tech/neondb?sslmode=require&channel_binding=require'
+JWT_SECRET='your_super_secret_jwt_string'
+REDIS_URL='redis://default:<password>@<domain>.redislabs.com:<port>'
 ```
 
-## What's inside?
+### 2. Docker Compose Launch
 
-This Turborepo includes the following packages/apps:
+The entire infrastructure (Load Balancer, 3 WS-Servers, HTTP-API, and Worker) is defined as a scalable multi-container Compose setup. From the root repository, simply boot up the distributed ecosystem:
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+```bash
+docker compose up -d --build
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+_Note: Because Docker uses Alpine Linux underneath, the Docker builder automatically hooks into TurboRepo, generating cross-platform Prisma engines natively._
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+### 3. Start Frontend Client
 
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+In a separate terminal, launch the Next.js React frontend to interact with the Dockerized backend:
 
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+```bash
+pnpm install
+pnpm dev
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Navigate to `http://localhost:3000` to start drawing!
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+---
 
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+_(Note: To gracefully spin down all Docker containers locally, invoke `docker compose down`)_

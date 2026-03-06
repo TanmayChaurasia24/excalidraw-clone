@@ -9,21 +9,17 @@ node_modules/
 # --- Build Outputs ---
 dist/
 build/
+.next/
+out/
+.turbo/
 *.tsbuildinfo
 
 # --- Environment & Secrets ---
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-# Prisma specific
-.env.backup
+.env.*
+!.env.example
 
-# --- Prisma ---
-# Ignore the generated client if you are not using a custom path, 
-# but since you ARE using a custom path (src/generated), 
-# you might want to ignore it to keep your git history clean.
+# --- Database ---
 packages/database/src/generated/
 
 # --- Logs ---
@@ -38,4 +34,3 @@ pnpm-debug.log*
 .vscode/
 .idea/
 .expo/
-.turbo/

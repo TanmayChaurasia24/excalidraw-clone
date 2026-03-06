@@ -50,7 +50,13 @@ async function processCanvasQueue() {
       }
 
       const operations = Array.from(uniqueUpdates.values()).map((msg) => {
-        const { roomId, userId, element } = msg;
+        const { action, roomId, userId, element } = msg;
+
+        if (action === "DELETE") {
+          return prisma.element.deleteMany({
+            where: { id: element.id },
+          });
+        }
 
         const propertiesToSave = {
           ...element.properties,

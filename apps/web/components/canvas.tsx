@@ -26,6 +26,7 @@ export default function Canvas({ roomId, socket }: { roomId: string, socket: Web
   // UI State
   const [tool, setTool] = useState<ToolType>("RECTANGLE");
   const [elements, setElements] = useState<CanvasElement[]>([]);
+  const [selectedElement, setSelectedElement] = useState<CanvasElement | null>(null);
 
   // High-performance drawing refs (bypasses React state batching)
   const isDrawing = useRef(false);
@@ -74,6 +75,11 @@ export default function Canvas({ roomId, socket }: { roomId: string, socket: Web
           return [...prev, message.element];
         });
       }
+
+      if (message.type === "receive_canvas_delete") {
+        setElements((prev) => prev.filter((el) => el.id !== message.elementId));
+        setSelectedElement((prev) => prev?.id === message.elementId ? null : prev);
+      }
     };
 
     socket.addEventListener("message", handleMessage);
@@ -82,6 +88,32 @@ export default function Canvas({ roomId, socket }: { roomId: string, socket: Web
       socket.removeEventListener("message", handleMessage);
     };
   }, [socket]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedElement) {
+        // Delete selected element
+        setElements((prev) => prev.filter((el) => el.id !== selectedElement.id));
+        
+        // Sync via websocket
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(
+            JSON.stringify({
+              type: "canvas_delete",
+              elementId: selectedElement.id,
+            })
+          );
+        }
+        
+        setSelectedElement(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedElement, socket]);
 
   // 2. The Render Engine
   useLayoutEffect(() => {
@@ -104,8 +136,42 @@ export default function Canvas({ roomId, socket }: { roomId: string, socket: Web
       if (currentElement.current) {
         drawShape(rc, currentElement.current, ctx);
       }
+
+      // Draw selection bounding box
+      if (selectedElement) {
+        const el = elements.find((e) => e.id === selectedElement.id);
+        if (el) {
+          ctx.save();
+          ctx.strokeStyle = "#4285f4"; // Blue selection outline
+          ctx.setLineDash([5, 5]);
+          ctx.lineWidth = 1;
+
+          if (el.type === "CIRCLE") {
+            const cx = el.x + el.width / 2;
+            const cy = el.y + el.height / 2;
+            const r = Math.max(Math.abs(el.width), Math.abs(el.height)) / 2 + 8;
+            ctx.strokeRect(cx - r, cy - r, r * 2, r * 2);
+          } else if (el.type === "RECTANGLE") {
+            const minX = Math.min(el.x, el.x + el.width);
+            const minY = Math.min(el.y, el.y + el.height);
+            const w = Math.abs(el.width);
+            const h = Math.abs(el.height);
+            ctx.strokeRect(minX - 8, minY - 8, w + 16, h + 16);
+          } else if (el.type === "PENCIL" && el.points) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            el.points.forEach((p) => {
+              minX = Math.min(minX, p.x);
+              minY = Math.min(minY, p.y);
+              maxX = Math.max(maxX, p.x);
+              maxY = Math.max(maxY, p.y);
+            });
+            ctx.strokeRect(minX - 8, minY - 8, maxX - minX + 16, maxY - minY + 16);
+          }
+          ctx.restore();
+        }
+      }
     }
-  }, [elements, tool, currentElement.current]);
+  }, [elements, tool, currentElement.current, selectedElement]);
 
   // 3. Shape Generator Helper
   const drawShape = (
@@ -136,13 +202,49 @@ export default function Canvas({ roomId, socket }: { roomId: string, socket: Web
 
   // 4. Mouse Event Handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (tool === "SELECTION") return;
-
-    isDrawing.current = true;
-
-    // Using nativeEvent.offsetX/Y handles cases where canvas isn't full screen
     const { offsetX, offsetY } = e.nativeEvent;
 
+    if (tool === "SELECTION") {
+      let clickedElement = null;
+      // Loop backwards to find topmost clicked shape
+      for (let i = elements.length - 1; i >= 0; i--) {
+        const el = elements[i]!;
+        let isInBounds = false;
+
+        if (el.type === "RECTANGLE" || el.type === "CIRCLE") {
+          const minX = Math.min(el.x, el.x + el.width);
+          const maxX = Math.max(el.x, el.x + el.width);
+          const minY = Math.min(el.y, el.y + el.height);
+          const maxY = Math.max(el.y, el.y + el.height);
+          if (offsetX >= minX && offsetX <= maxX && offsetY >= minY && offsetY <= maxY) {
+            isInBounds = true;
+          }
+        } else if (el.type === "PENCIL" && el.points) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          el.points.forEach((p) => {
+            minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+          });
+          if (offsetX >= minX && offsetX <= maxX && offsetY >= minY && offsetY <= maxY) {
+            isInBounds = true;
+          }
+        }
+
+        if (isInBounds) {
+          clickedElement = el;
+          break;
+        }
+      }
+      setSelectedElement(clickedElement);
+      return;
+    }
+
+    isDrawing.current = true;
+    setSelectedElement(null); // Clear selection if user starts drawing
+
+    // Using nativeEvent.offsetX/Y handles cases where canvas isn't full screen
     currentElement.current = {
       id: uuidv4(),
       type: tool,
@@ -246,8 +348,9 @@ export default function Canvas({ roomId, socket }: { roomId: string, socket: Web
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         // Prevents browser from doing text-selection or touch-scrolling while drawing
-        className="cursor-crosshair touch-none text-white"
+        className={`touch-none text-white ${tool === "SELECTION" ? "cursor-default" : "cursor-crosshair"}`}
       />
+      {/* Ensure element stays focusable so keydown events trigger properly if canvas is clicked */}
     </div>
   );
 }

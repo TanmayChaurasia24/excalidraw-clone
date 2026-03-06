@@ -2,9 +2,10 @@ import dotenv from "dotenv";
 dotenv.config();
 import WebSocket, { WebSocketServer } from "ws";
 import { verifyRoomToken } from "@repo/backend-common/auth";
-import { redis } from "@repo/redis";
+import { redis, pubClient, subClient } from "@repo/redis";
 
-const wss = new WebSocketServer({ port: 9000 });
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 9000;
+const wss = new WebSocketServer({ port });
 
 interface UserSocket extends WebSocket {
   userId?: string;
@@ -18,6 +19,51 @@ type Room = {
 };
 
 const rooms: Map<string, Room> = new Map();
+
+subClient.subscribe("global_canvas_updates");
+subClient.subscribe("global_chat_updates");
+
+subClient.on("message", (channel, message) => {
+  const data = JSON.parse(message);
+  const room = rooms.get(data.roomId);
+  if (!room) return;
+  if (channel === "global_canvas_updates") {
+    if (room) {
+      room.users.forEach((userSocket) => {
+        if (
+          userSocket.userId !== data.senderId &&
+          userSocket.readyState === WebSocket.OPEN
+        ) {
+          userSocket.send(
+            JSON.stringify({
+              type: data.type,
+              element: data.element,
+              elementId: data.elementId,
+            }),
+          );
+        }
+      });
+    }
+  }
+
+  if (channel === "global_chat_updates") {
+    room.users.forEach((userSocket) => {
+      if (
+        userSocket.userId !== data.senderId &&
+        userSocket.readyState === WebSocket.OPEN
+      ) {
+        userSocket.send(
+          JSON.stringify({
+            type: "receive_message",
+            text: data.text,
+            userId: data.senderId,
+            name: data.senderName,
+          }),
+        );
+      }
+    });
+  }
+});
 
 wss.on("connection", (rawSocket: WebSocket) => {
   const socket = rawSocket as UserSocket;
@@ -108,18 +154,16 @@ wss.on("connection", (rawSocket: WebSocket) => {
 
         if (!room) return;
 
-        room.users.forEach((userSocket) => {
-          if (userSocket !== socket) {
-            userSocket.send(
-              JSON.stringify({
-                type: "receive_message",
-                text,
-                userId: socket.userId,
-                name: socket.name,
-              }),
-            );
-          }
-        });
+        // 1. Publish to all servers
+        pubClient.publish(
+          "global_chat_updates",
+          JSON.stringify({
+            roomId: socket.roomId,
+            senderId: socket.userId,
+            senderName: socket.name,
+            text: text,
+          }),
+        );
 
         console.log("message is: ", text, roomId, socket.userId);
 
@@ -137,38 +181,31 @@ wss.on("connection", (rawSocket: WebSocket) => {
         if (!socket.roomId) return;
         const room = rooms.get(socket.roomId);
         if (!room) return;
-        room.users.forEach((userSocket) => {
-          if (
-            userSocket !== socket &&
-            userSocket.readyState === WebSocket.OPEN
-          ) {
-            userSocket.send(
-              JSON.stringify({
-                type: "receive_canvas_update",
-                element: message.element, // shape is been drawn
-              }),
-            );
-          }
-        });
+        // Publish to all servers
+        pubClient.publish(
+          "global_canvas_updates",
+          JSON.stringify({
+            type: "receive_canvas_update", // Tell the subscriber what event this is
+            roomId: socket.roomId,
+            senderId: socket.userId,
+            element: message.element,
+          }),
+        );
       }
 
       if (message.type === "canvas_commit") {
         if (!socket.roomId) return;
         const room = rooms.get(socket.roomId);
         if (!room) return;
-        room.users.forEach((userSocket) => {
-          if (
-            userSocket !== socket &&
-            userSocket.readyState === WebSocket.OPEN
-          ) {
-            userSocket.send(
-              JSON.stringify({
-                type: "receive_canvas_commit",
-                element: message.element,
-              }),
-            );
-          }
-        });
+        pubClient.publish(
+          "global_canvas_updates",
+          JSON.stringify({
+            type: "receive_canvas_commit",
+            roomId: socket.roomId,
+            senderId: socket.userId,
+            element: message.element,
+          }),
+        );
 
         redis.lpush(
           "canvas_elements",
@@ -177,6 +214,31 @@ wss.on("connection", (rawSocket: WebSocket) => {
             roomId: parseInt(socket.roomId),
             userId: socket.userId,
             element: message.element,
+          }),
+        );
+      }
+
+      if (message.type === "canvas_delete") {
+        if (!socket.roomId) return;
+        const room = rooms.get(socket.roomId);
+        if (!room) return;
+        pubClient.publish(
+          "global_canvas_updates",
+          JSON.stringify({
+            type: "receive_canvas_delete",
+            roomId: socket.roomId,
+            senderId: socket.userId,
+            elementId: message.elementId,
+          }),
+        );
+
+        redis.lpush(
+          "canvas_elements",
+          JSON.stringify({
+            action: "DELETE",
+            roomId: parseInt(socket.roomId),
+            userId: socket.userId,
+            element: { id: message.elementId }, // Only id is needed for delete
           }),
         );
       }
@@ -210,4 +272,4 @@ wss.on("connection", (rawSocket: WebSocket) => {
   });
 });
 
-console.log("WebSocket server running on ws://localhost:9000");
+console.log(`WebSocket server running on ws://localhost:${port}`);
