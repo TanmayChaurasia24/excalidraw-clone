@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
 # Use an Alpine image and install required packages
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl ca-certificates
 RUN npm install -g pnpm@9.0.0
 
 WORKDIR /app
@@ -16,7 +16,7 @@ RUN pnpm install --no-frozen-lockfile
 RUN cd packages/database && npx prisma generate
 
 # Generate Prisma client and build all packages/apps (Turbo build)
-RUN pnpm turbo run build --filter=http-backend --filter=ws-backend
+RUN pnpm turbo run build
 
 # We will override this command in docker-compose up
 CMD ["pnpm", "dev"]

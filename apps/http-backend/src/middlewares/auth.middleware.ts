@@ -30,6 +30,7 @@ export const authMiddleware = async(req: Request, res: Response, next: NextFunct
         console.log("done middleware");
         next();
     } catch (error) {
+        console.error("Auth Middleware Error: ", error);
         return errorResponse(res, "Internal server error, auth failed!", 500, error);
     }
 }
