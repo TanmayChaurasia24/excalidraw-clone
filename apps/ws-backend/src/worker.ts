@@ -52,6 +52,11 @@ async function processCanvasQueue() {
       const operations = Array.from(uniqueUpdates.values()).map((msg) => {
         const { roomId, userId, element } = msg;
 
+        const propertiesToSave = {
+          ...element.properties,
+          ...(element.points ? { points: element.points } : {}),
+        };
+
         return prisma.element.upsert({
           where: { id: element.id },
           update: {
@@ -59,8 +64,8 @@ async function processCanvasQueue() {
             y: element.y,
             width: element.width,
             height: element.height,
-            properties: element.properties,
-            zindex: element.zindex,
+            properties: propertiesToSave,
+            zindex: element.zindex || 0,
           },
           create: {
             id: element.id,
@@ -69,8 +74,8 @@ async function processCanvasQueue() {
             y: element.y,
             width: element.width,
             height: element.height,
-            properties: element.properties,
-            zindex: element.zindex,
+            properties: propertiesToSave,
+            zindex: element.zindex || 0,
             roomId,
             creatorId: userId,
           },
@@ -81,7 +86,9 @@ async function processCanvasQueue() {
       console.log(
         `Canvas batch upserted (${operations.length} unique writes).`,
       );
-    } catch (error) {}
+    } catch (error) {
+      console.log("Canvas worker error: ", error);
+    }
   }
 }
 

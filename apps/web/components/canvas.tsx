@@ -5,7 +5,7 @@ import rough from "roughjs";
 import { v4 as uuidv4 } from "uuid";
 
 // 1. Define the shapes and tools
-export type ToolType = "SELECTION" | "RECTANGLE" | "ELLIPSE" | "PENCIL";
+export type ToolType = "SELECTION" | "RECTANGLE" | "CIRCLE" | "PENCIL";
 
 export interface CanvasElement {
   id: string;
@@ -16,11 +16,11 @@ export interface CanvasElement {
   height: number;
   points?: { x: number; y: number }[]; // Specifically for the PENCIL tool
   properties: { stroke: string; strokeWidth: number };
+  zindex: number;
 }
 
-export default function Canvas({ roomId }: { roomId: string }) {
+export default function Canvas({ roomId, socket }: { roomId: string, socket: WebSocket | null }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // UI State
@@ -49,37 +49,39 @@ export default function Canvas({ roomId }: { roomId: string }) {
       }
     };
 
-    fetchInitialCanvas().then(() => {
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:9000";
-      const ws = new WebSocket(wsUrl);
-
-      ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-
-        // Handle live drawing updates from others
-        if (
-          message.type === "receive_canvas_update" ||
-          message.type === "receive_canvas_commit"
-        ) {
-          setElements((prev) => {
-            // Check if element exists (to update it) or add new
-            const exists = prev.find((el) => el.id === message.element.id);
-            if (exists) {
-              return prev.map((el) =>
-                el.id === message.element.id ? message.element : el,
-              );
-            }
-            return [...prev, message.element];
-          });
-        }
-      };
-
-      wsRef.current = ws;
-    });
-    return () => {
-      wsRef.current?.close();
-    };
+    fetchInitialCanvas();
   }, [roomId]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      const message = JSON.parse(event.data);
+
+      // Handle live drawing updates from others
+      if (
+        message.type === "receive_canvas_update" ||
+        message.type === "receive_canvas_commit"
+      ) {
+        setElements((prev) => {
+          // Check if element exists (to update it) or add new
+          const exists = prev.find((el) => el.id === message.element.id);
+          if (exists) {
+            return prev.map((el) =>
+              el.id === message.element.id ? message.element : el,
+            );
+          }
+          return [...prev, message.element];
+        });
+      }
+    };
+
+    socket.addEventListener("message", handleMessage);
+
+    return () => {
+      socket.removeEventListener("message", handleMessage);
+    };
+  }, [socket]);
 
   // 2. The Render Engine
   useLayoutEffect(() => {
@@ -113,7 +115,7 @@ export default function Canvas({ roomId }: { roomId: string }) {
   ) => {
     if (el.type === "RECTANGLE") {
       rc.rectangle(el.x, el.y, el.width, el.height, el.properties);
-    } else if (el.type === "ELLIPSE") {
+    } else if (el.type === "CIRCLE") {
       // Rough.js expects center coordinates for ellipses, so we calculate them
       const centerX = el.x + el.width / 2;
       const centerY = el.y + el.height / 2;
@@ -149,7 +151,8 @@ export default function Canvas({ roomId }: { roomId: string }) {
       width: 0,
       height: 0,
       points: tool === "PENCIL" ? [{ x: offsetX, y: offsetY }] : undefined,
-      properties: { stroke: "#0f172a", strokeWidth: 2 },
+      properties: { stroke: "#ffffff", strokeWidth: 2 },
+      zindex: elements.length,
     };
   };
 
@@ -170,8 +173,8 @@ export default function Canvas({ roomId }: { roomId: string }) {
     forceRedraw(); // Trigger useLayoutEffect
 
     // Broadcast LIVE movement via WebSocket
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(
         JSON.stringify({
           type: "canvas_update",
           element: currentElement.current,
@@ -189,8 +192,8 @@ export default function Canvas({ roomId }: { roomId: string }) {
     // Save final element to React state
     setElements((prev) => [...prev, finalShape]);
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(
         JSON.stringify({
           type: "canvas_commit",
           element: finalShape,
@@ -222,10 +225,10 @@ export default function Canvas({ roomId }: { roomId: string }) {
           Rectangle
         </button>
         <button
-          onClick={() => setTool("ELLIPSE")}
-          className={`px-3 py-1 rounded ${tool === "ELLIPSE" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-700 hover:text-blue-500"}`}
+          onClick={() => setTool("CIRCLE")}
+          className={`px-3 py-1 rounded ${tool === "CIRCLE" ? "bg-blue-100 text-blue-600" : "hover:bg-gray-700 hover:text-blue-500"}`}
         >
-          Ellipse
+          Circle
         </button>
         <button
           onClick={() => setTool("PENCIL")}
@@ -243,7 +246,7 @@ export default function Canvas({ roomId }: { roomId: string }) {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         // Prevents browser from doing text-selection or touch-scrolling while drawing
-        className="cursor-crosshair touch-none"
+        className="cursor-crosshair touch-none text-white"
       />
     </div>
   );

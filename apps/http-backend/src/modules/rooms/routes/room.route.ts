@@ -7,7 +7,7 @@ import { FetchElementsController } from "../controllers/fetchElements.controller
 const router: Router = Router();
 
 router.post("/create", authMiddleware, createController);
-router.post("/elements/:roomId", authMiddleware, FetchElementsController)
+router.get("/elements/:roomId", authMiddleware, FetchElementsController)
 router.post("/:roomId", authMiddleware, joinController);
 
 export default router;

@@ -49,7 +49,7 @@ export default function RoomPage({
       );
     };
 
-    ws.onmessage = (event) => {
+    const handleMessage = (event: MessageEvent) => {
       const data = JSON.parse(event.data);
       console.log("WebSocket message received:", data);
 
@@ -73,6 +73,8 @@ export default function RoomPage({
       }
     };
 
+    ws.addEventListener("message", handleMessage);
+
     ws.onerror = (err) => {
       console.error("WebSocket error", err);
       setError("Failed to connect to chat server");
@@ -86,7 +88,7 @@ export default function RoomPage({
 
     return () => {
       ws.onopen = null;
-      ws.onmessage = null;
+      ws.removeEventListener("message", handleMessage);
       ws.onerror = null;
       ws.onclose = null;
       ws.close();
@@ -179,7 +181,7 @@ export default function RoomPage({
     <div className="flex h-screen overflow-hidden bg-gray-900 text-white flex-row">
       {/* Canvas Area - Left side */}
       <div className="w-[70vw] relative h-full">
-        <Canvas roomId={roomId?.toString() ?? ""} />
+        <Canvas roomId={roomId?.toString() ?? ""} socket={socket} />
         
         {/* Room Info Overlay */}
         <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">

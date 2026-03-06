@@ -26,9 +26,20 @@ export const FetchElementsController = async (req: Request, res: Response) => {
       },
       orderBy: { zindex: "asc" },
     });
-    console.log("elements fetched from db", elements);
+    const parsedElements = elements.map(el => {
+      const properties: any = (el.properties as Record<string, any>) || {};
+      const { points, ...otherProperties } = properties;
+      
+      return {
+        ...el,
+        points: points || undefined,
+        properties: otherProperties
+      };
+    });
     
-    return successResponse(res, "elements fetched successfully", 200, elements);
+    console.log("elements fetched from db", parsedElements);
+    
+    return successResponse(res, "elements fetched successfully", 200, parsedElements);
   } catch (error) {
     return errorResponse(
       res,
